@@ -540,6 +540,9 @@ plt.xlim([
 
 plt.savefig("feature_selection_sfs_plot", bbox_inches='tight')
 
+
+# TODO: Add the Sequential Backward Feature Selection (SBS)
+
 # Finish ------------------------------------------------------------------------------------------- Feature Selection
 
 

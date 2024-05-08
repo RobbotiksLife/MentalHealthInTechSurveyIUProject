@@ -1,19 +1,90 @@
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import seaborn as sns
 
 
 # settings
 pd.options.display.max_columns = None
 pd.options.display.max_rows = None
+pd.set_option('future.no_silent_downcasting', True)
+
+
+def pca_plot_data(df, filename, save_format='png'):
+    # Convert categorical variables to numerical
+    encoder = LabelEncoder()
+    df_encoded = df.apply(encoder.fit_transform)
+    # df = pd.get_dummies(df)
+
+    # Perform PCA
+    scaler = StandardScaler()
+    df_scaled = scaler.fit_transform(df_encoded)
+    pca = PCA(n_components=2)
+    pca_result = pca.fit_transform(df_scaled)
+
+    # Plot PCA
+    plt.figure(figsize=(8, 6))
+    plt.scatter(pca_result[:, 0], pca_result[:, 1], alpha=0.5)
+    plt.xlabel('Principal Component 1')
+    plt.ylabel('Principal Component 2')
+    plt.title('PCA Plot of Data')
+    plt.grid(True)
+    plt.savefig(f'{filename}.{save_format}', bbox_inches='tight')
+
+
+def correlation_cycle_plot_data(df, filename, save_format='png'):
+    # Convert categorical variables to numerical
+    encoder = LabelEncoder()
+    df_encoded = df.apply(encoder.fit_transform)
+    # df = pd.get_dummies(df)
+
+    corr_matrix = df_encoded.corr()
+
+    # Apply PCA for dimensionality reduction
+    pca = PCA(n_components=2)
+    pca_result = pca.fit_transform(corr_matrix)
+
+    # Create correlation circle plot
+    plt.figure(figsize=(24, 24))
+    sns.scatterplot(x=pca_result[:, 0], y=pca_result[:, 1], s=200)
+
+    # Plot variable names
+    for i in range(len(df.columns)):
+        plt.text(pca_result[i, 0], pca_result[i, 1], f"F{str(i)}", fontsize=12, ha='center')
+
+    # Set plot labels and title
+    plt.xlabel('PC1', fontsize=14)
+    plt.ylabel('PC2', fontsize=14)
+    plt.title('Correlation Circle Plot', fontsize=16)
+    plt.axhline(0, color='black', linewidth=0.5)
+    plt.axvline(0, color='black', linewidth=0.5)
+    # plt.grid(True, linestyle='--', alpha=0.7)
+
+    max_value = np.max(pca_result)
+
+    # Add correlation circle
+    circle = plt.Circle((0, 0), max_value, color='blue', fill=False, linestyle='--', linewidth=2)
+    plt.gca().add_artist(circle)
+
+    # Manually set x and y limits
+    plt.xlim(-max_value, max_value)
+    plt.ylim(-max_value, max_value)
+
+    plt.savefig(f'{filename}.{save_format}', bbox_inches='tight')
+
 
 # Start ------------------------------------------------------------------------------------------- Loading File
 # Define the file path
 dt = pd.read_csv("archive/mental-heath-in-tech-2016_20161114.csv")
 dt_rows, dt_columns = dt.shape
 
+pca_plot_data(dt, filename="pca_plot_after_loading")
+correlation_cycle_plot_data(dt, filename="correlation_cycle_plot_after_loading")
+
 # get survey answers
-print(f'Dataset Loaded: \n{dt.head()}')
+print(f'Dataset Loaded:')  # \n{dt.head()}
 
 def show_survey_questions():
     for i, column in enumerate(dt.columns):
@@ -80,31 +151,80 @@ dt = dt.reset_index(drop=True)
 
 
 
-
 #Create separate columns for presence of each MHC for easier filter
+# TODO: add other descriptions analysis for example ('If so, what condition(s) were you diagnosed with?')
 details_about_condition_feature_key = 'If yes, what condition(s) have you been diagnosed with?'
 print(dt[details_about_condition_feature_key].value_counts())
-dt['Anxiety Disorder'] = dt[details_about_condition_feature_key].str.contains('Anxiety Disorder')
-dt['Mood Disorder'] = dt[details_about_condition_feature_key].str.contains('Mood Disorder')
-dt['ADHD'] = dt[details_about_condition_feature_key].str.contains('Attention')
-dt['OCD'] = dt[details_about_condition_feature_key].str.contains('Compulsive')
-dt['PTSD'] = dt[details_about_condition_feature_key].str.contains('Post')
-dt['PTSD undiagnosed'] = dt[details_about_condition_feature_key].str.contains('PTSD \(undiagnosed\)')
-dt['Eating Disorder'] = dt[details_about_condition_feature_key].str.contains('Eating')
-dt['Substance Use Disorder'] = dt[details_about_condition_feature_key].str.contains('Substance')
-dt['Stress Response Syndrome'] = dt[details_about_condition_feature_key].str.contains('Stress Response')
-dt['Personality Disorder'] = dt[details_about_condition_feature_key].str.contains('Personality Disorder')
-dt['Pervasive Developmental Disorder'] = dt[details_about_condition_feature_key].str.contains('Pervasive')
-dt['Psychotic Disorder'] = dt[details_about_condition_feature_key].str.contains('Psychotic')
-dt['Addictive Disorder'] = dt[details_about_condition_feature_key].str.contains('Addictive Disorder')
-dt['Dissociative Disorder'] = dt[details_about_condition_feature_key].str.contains('Dissociative')
-dt['Seasonal Affective Disorder'] = dt[details_about_condition_feature_key].str.contains('Seasonal')
-dt['Schizotypal Personality Disorder'] = dt[details_about_condition_feature_key].str.contains('Schizotypal')
-dt['Traumatic Brain Injury'] = dt[details_about_condition_feature_key].str.contains('Brain')
-dt['Sexual Addiction'] = dt[details_about_condition_feature_key].str.contains('Sexual')
-dt['Autism'] = dt[details_about_condition_feature_key].str.contains('Autism')
-dt['ADD w/o Hyperactivity)'] = dt[details_about_condition_feature_key].str.contains('ADD \(w/o Hyperactivity\)')
+conditions = {
+    'Anxiety Disorder': 'Anxiety Disorder',
+    'Mood Disorder': 'Mood Disorder',
+    'ADHD': 'Attention',
+    'OCD': 'Compulsive',
+    'PTSD': 'Post',
+    'PTSD undiagnosed': 'PTSD \(undiagnosed\)',
+    'Eating Disorder': 'Eating',
+    'Substance Use Disorder': 'Substance',
+    'Stress Response Syndrome': 'Stress Response',
+    'Personality Disorder': 'Personality Disorder',
+    'Pervasive Developmental Disorder': 'Pervasive',
+    'Psychotic Disorder': 'Psychotic',
+    'Addictive Disorder': 'Addictive Disorder',
+    'Dissociative Disorder': 'Dissociative',
+    'Seasonal Affective Disorder': 'Seasonal',
+    'Schizotypal Personality Disorder': 'Schizotypal',
+    'Traumatic Brain Injury': 'Brain',
+    'Sexual Addiction': 'Sexual',
+    'Autism': 'Autism',
+    'ADD w/o Hyperactivity)': 'ADD \(w/o Hyperactivity\)'
+}
 
+for condition, substring in conditions.items():
+    dt[condition] = dt[details_about_condition_feature_key].str.contains(substring)
+    # dt[condition].fillna(False, inplace=True)
+    dt[condition] = dt[condition].fillna(False).infer_objects(copy=False)
+
+# If users was not living in USA
+columns_to_fill_none_str = [
+    'What US state or territory do you live in?',
+    'What US state or territory do you work in?'
+]
+dt[columns_to_fill_none_str] = dt[columns_to_fill_none_str].fillna("None")
+
+
+
+# To remove columns wehre user was writing own text(this can be done by checking the unicue values)
+def high_uniqueness_features(df, threshold=10):
+    high_uniqueness_features = []
+    for column in df.columns:
+        unique_values = df[column].nunique()
+        if unique_values > threshold:
+            high_uniqueness_features.append(column)
+    return high_uniqueness_features
+
+# Check for features with high nuniques
+high_uniqueness_feats = high_uniqueness_features(dt, threshold=10)
+print("Features with more than 10 unique values:", high_uniqueness_feats)
+# Delete features that user was writing by himself
+own_user_type_description_feature_keys = [
+    'Why or why not?',
+    'Why or why not?.1',
+    'If yes, what condition(s) have you been diagnosed with?',
+    'If maybe, what condition(s) do you believe you have?',
+    'If so, what condition(s) were you diagnosed with?'
+]
+dt.drop(columns=own_user_type_description_feature_keys, inplace=True)
+
+
+# print(dt['Are you self-employed?'].value_counts())
+# print(dt['How many employees does your company or organization have?'].value_counts())
+# print(dt['Is your primary role within your company related to tech/IT?'].value_counts())
+# print(dt['Is your primary role within your company related to tech/IT?'].nunique())
+features_with_no_variance = dt.columns[dt.nunique() <= 1]
+dt.drop(columns=features_with_no_variance, inplace=True)
+
+
+pca_plot_data(dt, filename="pca_plot_after_data_processing")
+correlation_cycle_plot_data(dt, filename="correlation_cycle_plot_after_data_processing")
 # Finish ------------------------------------------------------------------------------------------- Dataset Preprocessing
 
 
@@ -227,7 +347,7 @@ dt_treated_sought_counts = None
 for data, label in dt_group:
     counts_MHC = create_sorted_dt(data, label, base_label=sought_treatment_feature)
     dt_treated_sought_counts = dt_treated_sought_counts.merge(counts_MHC, on=sought_treatment_feature, how='left') if dt_treated_sought_counts is not None else counts_MHC
-
+dt_treated_sought_counts = dt_treated_sought_counts.fillna(0)
 # Plotting sought treatment statistics
 plot_dt_group_statistics(
     dt_statistics=dt_treated_sought_counts,
@@ -274,10 +394,181 @@ plot_dt_group_statistics(
 )
 
 
+
+
+# import seaborn as sns
+# import matplotlib.pyplot as plt
+# # Loop through each column and plot value counts
+# for col in dt.columns:
+#     plt.figure(figsize=(8, 6))
+#     sns.countplot(data=dt, x=col)
+#     plt.title(f'Value Counts of {col}')
+#     plt.xticks(rotation=45)
+#     plt.show()
+
+dt.to_csv("my_dt.csv", index=False)
+
+print(dt.shape)
+print(dt['Do you know the options for mental health care available under your employer-provided coverage?'].value_counts())
+
+
 # Finish ------------------------------------------------------------------------------------------- Dataset Visualizing
 
 # Start ------------------------------------------------------------------------------------------- Filling None values
+from sklearn.experimental import enable_iterative_imputer  # noqa
+from sklearn.impute import IterativeImputer
+from sklearn.linear_model import BayesianRidge
+
+
+from sklearn.preprocessing import LabelEncoder
+# Convert categorical variables to numerical
+encoder = LabelEncoder()
+df_encoded = dt.apply(encoder.fit_transform)
+# dt_dummies = pd.get_dummies(dt)
+
+#%% apply regression imputation using ‘Bayesian Ridge’
+column_names = df_encoded.columns.tolist()
+imputbr = IterativeImputer(BayesianRidge())
+dt = pd.DataFrame(imputbr.fit_transform(df_encoded))
+dt.columns = column_names
+
+dt.to_csv("my_dt_filled.csv", index=False)
+
+pca_plot_data(dt, filename="pca_plot_after_imputation")
+correlation_cycle_plot_data(dt, filename="correlation_cycle_plot_after_imputation")
+# console output:
+# 	0	        1
+# 0	10.000000	2.000000
+# 1	5.000531	1.000000
+# 2	2.000000	0.400000
+# 3	1.000000	0.200000
+# 4	5.000000	0.999973
+
 # Finish ------------------------------------------------------------------------------------------- Filling None values
 
 
+# Start ------------------------------------------------------------------------------------------- Feature Selection
+
+
+
+# Assuming df is your DataFrame containing the data
+correlation_matrix = dt.corr()
+correlation_matrix.to_csv("my_dt_correlation_matrix.csv", index=False)
+
+# Plotting the correlation matrix
+plt.figure(figsize=(12, 8))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.title('Correlation Matrix')
+plt.savefig("correlation_matrix_plot.png", bbox_inches='tight')
+
+
+def plot_most_correlated_features_with_feature_of_interest(correlation_matrix, feature_of_interest, filename, save_format='png'):
+    # Extracting correlation values for the feature 'Do you currently have a mental health disorder?'
+    mental_health_correlation = correlation_matrix[feature_of_interest]
+
+    # Displaying correlation values sorted by absolute magnitude
+    mental_health_correlation_sorted = mental_health_correlation.abs().sort_values(ascending=False)
+    print(mental_health_correlation_sorted)
+
+    # Ploting
+    plt.figure(figsize=(10, 6))
+    mental_health_correlation_sorted[1:].plot(kind='bar', color='skyblue')
+    plt.title(f'Correlation of "{feature_of_interest}" with other features')
+    plt.xlabel('Features')
+    plt.ylabel('Absolute Correlation')
+    plt.xticks(rotation=90)
+    plt.savefig(f'{filename}.{save_format}', bbox_inches='tight')
+
+plot_most_correlated_features_with_feature_of_interest(
+    correlation_matrix=correlation_matrix,
+    feature_of_interest='Do you currently have a mental health disorder?',
+    filename="correlation_with_feature_of_currently_having_mhd"
+)
+
+# import libraries
+import pandas as pd
+import numpy as np
+from mlxtend.feature_selection import SequentialFeatureSelector as SFS
+import matplotlib.pyplot as plt
+from sklearn.svm import SVC
+
+
+# Model
+svm = SVC()
+# create an SFS object
+sfs = SFS(
+    estimator=svm,
+    k_features=(1, 10),
+    forward=True,
+    scoring='accuracy',
+    cv=5
+)
+
+y = dt[['Do you currently have a mental health disorder?']]
+X = dt.drop('Do you currently have a mental health disorder?', axis=1)
+
+# Flatten x if it's a DataFrame
+y = y.values.ravel()
+
+# Fit the EFS object
+sfs = sfs.fit(X, y)
+
+print(sfs.k_feature_names_)
+
+sfs_results = pd.DataFrame(sfs.get_metric_dict()).T.sort_values(by='avg_score', ascending=False)
+
+# create figure and axes
+fig, ax = plt.subplots(figsize=(10, 6))
+# plot bars
+y_pos = np.arange(len(sfs_results))
+ax.barh(y_pos, sfs_results['avg_score'], \
+  xerr=sfs_results['std_err'])
+# set axis ticks and labels
+ax.set_yticks(y_pos)
+ax.set_yticklabels(sfs_results['feature_names'])
+ax.set_xlabel('Accuracy')
+# limit range to overimpose differences
+avg_scores = sfs_results['avg_score']
+avg_score_min = min(avg_scores)
+avg_score_max = max(avg_scores)
+avg_score_diff = avg_score_max - avg_score_min
+avg_score_visual_step = avg_score_diff * 0.4
+plt.xlim([
+    avg_score_min-avg_score_visual_step,
+    avg_score_max+avg_score_visual_step
+])
+
+plt.savefig("feature_selection_sfs_plot", bbox_inches='tight')
+
+# Finish ------------------------------------------------------------------------------------------- Feature Selection
+
+
+
+
+
+
+
+
+
+print("end")
+
+
+
+
+
+
+# # In the end if would need it "remove_features_with_high_missing_values"
+# def remove_features_with_high_missing_values(df, threshold_percentage):
+#     # Calculate the percentage of missing values in each column
+#     missing_values_percentage = df.isnull().sum().to_list() / len(df)
+#
+#     # Identify features with missing values exceeding the threshold percentage
+#     features_to_remove = missing_values_percentage[missing_values_percentage > threshold_percentage].index.tolist()
+#
+#     # Remove identified features from the DataFrame
+#     df_cleaned = df.drop(columns=features_to_remove)
+#
+#     return df_cleaned
+#
+# remove_features_with_high_missing_values(df=dt, threshold_percentage=0.5)
 

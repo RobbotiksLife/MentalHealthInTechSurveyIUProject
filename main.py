@@ -74,6 +74,49 @@ def correlation_cycle_plot_data(df, filename, save_format='png'):
 
     plt.savefig(f'{filename}.{save_format}', bbox_inches='tight')
 
+def high_uniqueness_features(df, threshold=10):
+    high_uniqueness_features = []
+    for column in df.columns:
+        unique_values = df[column].nunique()
+        if unique_values > threshold:
+            high_uniqueness_features.append(column)
+    return high_uniqueness_features
+
+
+def multiply_tuple_scalar(tuple_to_multiply, scalar):
+    return tuple(value * scalar for value in tuple_to_multiply)
+
+def create_sorted_dt(dt, label, base_label):
+    counts = dt[base_label].value_counts().sort_index().reset_index()
+    counts.columns = [base_label, label]
+    return counts
+
+def plot_dt_group_statistics(dt_statistics, statistics_feature, title, filename, save_format='png', figsize=1.0):
+    fig, axs = plt.subplots(2, 4, figsize=multiply_tuple_scalar((12, 8), figsize))
+    axs = axs.flatten()  # Flatten the subplot array for easier iteration
+
+    colors = ['skyblue', 'salmon', 'lightgreen', 'orchid', 'gold']
+    # MHC_labels = [whole_population] + MHCs
+    MHC_columns = dt_statistics.columns.to_list()[1:]
+    # Plot each MHC distribution
+    for ax, label, column in zip(axs, dt_group_labels, MHC_columns):
+        ax.pie(dt_statistics[column], labels=dt_statistics[statistics_feature], colors=colors, autopct='%.0f%%')
+        ax.set_title(label, fontsize=12)
+
+    # Adjust layout and add title
+    plt.suptitle(title, weight='bold', fontsize=20)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust subplot layout to make space for title
+
+    plt.savefig(f'{filename}.{save_format}')
+
+def plot_dataset(df):
+    # Loop through each column and plot value counts
+    for col in df.columns:
+        plt.figure(figsize=(8, 6))
+        sns.countplot(data=df, x=col)
+        plt.title(f'Value Counts of {col}')
+        plt.xticks(rotation=45)
+        plt.show()
 
 # Start ------------------------------------------------------------------------------------------- Loading File
 # Define the file path
@@ -152,7 +195,6 @@ dt = dt.reset_index(drop=True)
 
 
 #Create separate columns for presence of each MHC for easier filter
-# TODO: add other descriptions analysis for example ('If so, what condition(s) were you diagnosed with?')
 details_about_condition_feature_key = 'If yes, what condition(s) have you been diagnosed with?'
 print(dt[details_about_condition_feature_key].value_counts())
 conditions = {
@@ -193,14 +235,6 @@ dt[columns_to_fill_none_str] = dt[columns_to_fill_none_str].fillna("None")
 
 
 # To remove columns wehre user was writing own text(this can be done by checking the unicue values)
-def high_uniqueness_features(df, threshold=10):
-    high_uniqueness_features = []
-    for column in df.columns:
-        unique_values = df[column].nunique()
-        if unique_values > threshold:
-            high_uniqueness_features.append(column)
-    return high_uniqueness_features
-
 # Check for features with high nuniques
 high_uniqueness_feats = high_uniqueness_features(dt, threshold=10)
 print("Features with more than 10 unique values:", high_uniqueness_feats)
@@ -291,39 +325,13 @@ plt.tight_layout()
 plt.savefig('population_count_plot.png')
 
 
-def multiply_tuple_scalar(tuple_to_multiply, scalar):
-    return tuple(value * scalar for value in tuple_to_multiply)
-
 # Gender statistics
-def create_sorted_dt(dt, label, base_label):
-    counts = dt[base_label].value_counts().sort_index().reset_index()
-    counts.columns = [base_label, label]
-    return counts
-
 dt_gender = None
 for data, label in dt_group:
     counts_MHC = create_sorted_dt(data, f'What is your gender? ({label})', base_label='What is your gender?')
     dt_gender = dt_gender.merge(counts_MHC, on='What is your gender?', how='left') if dt_gender is not None else counts_MHC
 
 # Plotting
-def plot_dt_group_statistics(dt_statistics, statistics_feature, title, filename, save_format='png', figsize=1):
-    fig, axs = plt.subplots(2, 4, figsize=multiply_tuple_scalar((12, 8), figsize))
-    axs = axs.flatten()  # Flatten the subplot array for easier iteration
-
-    colors = ['skyblue', 'salmon', 'lightgreen', 'orchid', 'gold']
-    # MHC_labels = [whole_population] + MHCs
-    MHC_columns = dt_statistics.columns.to_list()[1:]
-    # Plot each MHC distribution
-    for ax, label, column in zip(axs, dt_group_labels, MHC_columns):
-        ax.pie(dt_statistics[column], labels=dt_statistics[statistics_feature], colors=colors, autopct='%.0f%%')
-        ax.set_title(label, fontsize=12)
-
-    # Adjust layout and add title
-    plt.suptitle(title, weight='bold', fontsize=20)
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust subplot layout to make space for title
-
-    plt.savefig(f'{filename}.{save_format}')
-
 plot_dt_group_statistics(
     dt_statistics=dt_gender,
     statistics_feature='What is your gender?',
@@ -394,24 +402,11 @@ plot_dt_group_statistics(
 )
 
 
-
-
-# import seaborn as sns
-# import matplotlib.pyplot as plt
-# # Loop through each column and plot value counts
-# for col in dt.columns:
-#     plt.figure(figsize=(8, 6))
-#     sns.countplot(data=dt, x=col)
-#     plt.title(f'Value Counts of {col}')
-#     plt.xticks(rotation=45)
-#     plt.show()
-
+# save dataset
 dt.to_csv("my_dt.csv", index=False)
 
-print(dt.shape)
-print(dt['Do you know the options for mental health care available under your employer-provided coverage?'].value_counts())
-
-
+# print(dt.shape)
+# print(dt['Do you know the options for mental health care available under your employer-provided coverage?'].value_counts())
 # Finish ------------------------------------------------------------------------------------------- Dataset Visualizing
 
 # Start ------------------------------------------------------------------------------------------- Filling None values
@@ -420,7 +415,6 @@ from sklearn.impute import IterativeImputer
 from sklearn.linear_model import BayesianRidge
 
 
-from sklearn.preprocessing import LabelEncoder
 # Convert categorical variables to numerical
 encoder = LabelEncoder()
 df_encoded = dt.apply(encoder.fit_transform)
@@ -436,31 +430,38 @@ dt.to_csv("my_dt_filled.csv", index=False)
 
 pca_plot_data(dt, filename="pca_plot_after_imputation")
 correlation_cycle_plot_data(dt, filename="correlation_cycle_plot_after_imputation")
-# console output:
-# 	0	        1
-# 0	10.000000	2.000000
-# 1	5.000531	1.000000
-# 2	2.000000	0.400000
-# 3	1.000000	0.200000
-# 4	5.000000	0.999973
-
 # Finish ------------------------------------------------------------------------------------------- Filling None values
 
 
 # Start ------------------------------------------------------------------------------------------- Feature Selection
+from mlxtend.feature_selection import SequentialFeatureSelector as SFS
+from sklearn.svm import SVC
 
 
+def get_most_correlated_features(correlation_matrix, threshold=0.9):
+    # Exclude diagonal and lower triangle to avoid duplicate pairs and self-correlation
+    upper_triangle = correlation_matrix.where(
+        np.triu(np.ones(correlation_matrix.shape), k=1).astype(bool)
+    )
+    # Find pairs of highly correlated features
+    correlated_pairs = (upper_triangle.abs() > threshold).stack()
+    # Get the index of highly correlated pairs
+    correlated_feature_index = correlated_pairs[correlated_pairs].index.tolist()
+    # Extract correlated features and their correlation values
+    correlated_features = [(pair[0], pair[1], correlation_matrix.loc[pair]) for pair in correlated_feature_index]
+    # Sort the correlated features based on their correlation values
+    correlated_features.sort(key=lambda x: x[2], reverse=True)
+    return correlated_features
 
-# Assuming df is your DataFrame containing the data
-correlation_matrix = dt.corr()
-correlation_matrix.to_csv("my_dt_correlation_matrix.csv", index=False)
-
-# Plotting the correlation matrix
-plt.figure(figsize=(12, 8))
-sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
-plt.title('Correlation Matrix')
-plt.savefig("correlation_matrix_plot.png", bbox_inches='tight')
-
+def select_most_correlated_features_for_clustering(correlated_features, max_features=5):
+    selected_features = set()
+    for feature1, feature2, correlation in correlated_features:
+        if len(selected_features) < max_features:
+            selected_features.add(feature1)
+            selected_features.add(feature2)
+        else:
+            break
+    return list(selected_features)
 
 def plot_most_correlated_features_with_feature_of_interest(correlation_matrix, feature_of_interest, filename, save_format='png'):
     # Extracting correlation values for the feature 'Do you currently have a mental health disorder?'
@@ -479,81 +480,157 @@ def plot_most_correlated_features_with_feature_of_interest(correlation_matrix, f
     plt.xticks(rotation=90)
     plt.savefig(f'{filename}.{save_format}', bbox_inches='tight')
 
+
+def plot_sequential_feature_selection(selection_results, filename, save_format='png', figsize=1.0):
+    # create figure and axes
+    fig, ax = plt.subplots(figsize=multiply_tuple_scalar((10, 6), figsize))
+    # plot bars
+    y_pos = np.arange(len(selection_results))
+    ax.barh(y_pos, selection_results['avg_score'], xerr=selection_results['std_err'])
+    # set axis ticks and labels
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(selection_results['feature_idx'])
+    ax.set_xlabel('Accuracy')
+    # limit range to overimpose differences
+    avg_scores = selection_results['avg_score']
+    avg_score_min = min(avg_scores)
+    avg_score_max = max(avg_scores)
+    avg_score_diff = avg_score_max - avg_score_min
+    avg_score_visual_step = avg_score_diff * 0.4
+    plt.xlim([
+        avg_score_min-avg_score_visual_step,
+        avg_score_max+avg_score_visual_step
+    ])
+    plt.savefig(f'{filename}.{save_format}', bbox_inches='tight')
+
+
+correlation_matrix = dt.corr()
+correlation_matrix.to_csv("my_dt_correlation_matrix.csv", index=False)
+
+# Plotting the correlation matrix
+plt.figure(figsize=(24, 16))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.title('Correlation Matrix')
+plt.savefig("correlation_matrix_plot.png", bbox_inches='tight')
+
+
+# Define most correlated features
+most_correlated_features = get_most_correlated_features(correlation_matrix, threshold=0.7)
+selected_features = select_most_correlated_features_for_clustering(most_correlated_features, max_features=10)
+print("Most correlated features is:", selected_features)
+
+# Define most correlated features with feature of interest
 plot_most_correlated_features_with_feature_of_interest(
     correlation_matrix=correlation_matrix,
     feature_of_interest='Do you currently have a mental health disorder?',
     filename="correlation_with_feature_of_currently_having_mhd"
 )
 
-# import libraries
-import pandas as pd
-import numpy as np
-from mlxtend.feature_selection import SequentialFeatureSelector as SFS
-import matplotlib.pyplot as plt
-from sklearn.svm import SVC
 
+# Sequential Feature Selection
+# Define datasets
+X = dt.drop('Do you currently have a mental health disorder?', axis=1)
+y = dt[['Do you currently have a mental health disorder?']].values.ravel()
 
-# Model
-svm = SVC()
-# create an SFS object
-sfs = SFS(
-    estimator=svm,
-    k_features=(1, 10),
-    forward=True,
-    scoring='accuracy',
-    cv=5
+# Standardize data Scaler
+scaler = StandardScaler()
+X_standardized = scaler.fit_transform(X)
+
+def sfs_processing(model, model_name, X, y, k_features=(1, 10)):
+    # Sequential Forward Feature Selection (SFS)
+    model_copy = model
+    for is_forward in [True, False]:
+        # Define Model
+        model_to_be_learned = model_copy
+        # create an SFS object
+        sfs = SFS(
+            estimator=model_to_be_learned,
+            k_features=k_features,
+            forward=is_forward,
+            scoring='accuracy',
+            cv=5
+        )
+
+        # Fit the SFS object
+        sfs = sfs.fit(X, y)
+
+        print(sfs.k_feature_names_)
+
+        sfs_results = pd.DataFrame(sfs.get_metric_dict()).T.sort_values(by='avg_score', ascending=False)
+        plot_sequential_feature_selection(sfs_results, filename=f'{model_name}_feature_selection_s{"f" if is_forward else "b"}s_plot')
+
+# Sequential Forward and Backward Feature Selection with SVM
+sfs_processing(
+    model=SVC(),
+    model_name="svm",
+    X=X_standardized,
+    y=y
 )
 
-y = dt[['Do you currently have a mental health disorder?']]
-X = dt.drop('Do you currently have a mental health disorder?', axis=1)
 
-# Flatten x if it's a DataFrame
-y = y.values.ravel()
+# Start ------------------------------------  Prediction of features
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
-# Fit the EFS object
-sfs = sfs.fit(X, y)
+# Extract the most informative the feature
+# X_scaled_subset = X_scaled[:, 34].reshape(-1, 1)  # Reshape to maintain 2D array shape
+# selected_feature_indices = [9, 18, 26, 28, 33, 37, 46, 47, 48, 57] # Accuracy: 0.8305084745762712
+selected_feature_indices = [9, 14, 33, 37, 44, 46, 47, 48, 57, 61] # Accuracy: 0.8587570621468926
+X_standardized_subset = X_standardized[:, selected_feature_indices]
 
-print(sfs.k_feature_names_)
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X_standardized_subset, y, test_size=0.2, random_state=42)
 
-sfs_results = pd.DataFrame(sfs.get_metric_dict()).T.sort_values(by='avg_score', ascending=False)
+# Initialize the SVC model
+svm_model = SVC()
+# Train the SVC model
+svm_model.fit(X_train, y_train)
 
-# create figure and axes
-fig, ax = plt.subplots(figsize=(10, 6))
-# plot bars
-y_pos = np.arange(len(sfs_results))
-ax.barh(y_pos, sfs_results['avg_score'], \
-  xerr=sfs_results['std_err'])
-# set axis ticks and labels
-ax.set_yticks(y_pos)
-ax.set_yticklabels(sfs_results['feature_names'])
-ax.set_xlabel('Accuracy')
-# limit range to overimpose differences
-avg_scores = sfs_results['avg_score']
-avg_score_min = min(avg_scores)
-avg_score_max = max(avg_scores)
-avg_score_diff = avg_score_max - avg_score_min
-avg_score_visual_step = avg_score_diff * 0.4
-plt.xlim([
-    avg_score_min-avg_score_visual_step,
-    avg_score_max+avg_score_visual_step
-])
-
-plt.savefig("feature_selection_sfs_plot", bbox_inches='tight')
-
-
-# TODO: Add the Sequential Backward Feature Selection (SBS)
-
+# Make predictions on the test set
+y_pred = svm_model.predict(X_test)
+# Calculate accuracy
+accuracy = accuracy_score(y_test, y_pred)
+print("Accuracy:", accuracy)
+# Stop ------------------------------------  Prediction of features
 # Finish ------------------------------------------------------------------------------------------- Feature Selection
 
 
 
+# Start ------------------------------------------------------------------------------------------- Clustering
+# Define best k for KMeans
+from sklearn.cluster import KMeans
+from yellowbrick.cluster import KElbowVisualizer
+
+# create a k-Means model an Elbow-Visualizer
+model = KMeans()
+visualizer = KElbowVisualizer(model, k=(1, 8), timings=False)
+# fit the visualizer and show the plot
+visualizer.fit(X_standardized)
+visualizer.show(outpath="k_means_elbow_plot.png")
 
 
 
+# k-means clustering
+n_clusters = 3
+
+kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(X_standardized)
+
+# Reduce dimensions to 2 for visualization
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_standardized)
+
+# Plot clusters
+plt.figure(figsize=(8, 6))
+for i in range(n_clusters):
+    plt.scatter(X_pca[kmeans.labels_ == i, 0], X_pca[kmeans.labels_ == i, 1], label=f'Cluster {i+1}')
+plt.title('K-means Clustering')
+plt.xlabel('Principal Component 1')
+plt.ylabel('Principal Component 2')
+plt.legend()
+plt.savefig("k_means_clustering.png")
+# Finish ------------------------------------------------------------------------------------------- Clustering
 
 
-
-print("end")
 
 
 

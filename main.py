@@ -595,6 +595,9 @@ print("Accuracy:", accuracy)
 # Finish ------------------------------------------------------------------------------------------- Feature Selection
 
 
+# Start ------------------------------------------------------------------------------------------- Visualize Clusters Feature Correlation
+# TODO: Visualize Clusters Feature Correlation (Maybe do visualization for SVM and K means separatly but better do just for SVM and thats all)
+# Finish ------------------------------------------------------------------------------------------- Visualize Clusters Feature Correlation
 
 # Start ------------------------------------------------------------------------------------------- Clustering
 # Define best k for KMeans
@@ -629,10 +632,6 @@ plt.ylabel('Principal Component 2')
 plt.legend()
 plt.savefig("k_means_clustering.png")
 # Finish ------------------------------------------------------------------------------------------- Clustering
-
-
-
-
 
 
 

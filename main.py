@@ -420,6 +420,15 @@ encoder = LabelEncoder()
 df_encoded = dt.apply(encoder.fit_transform)
 # dt_dummies = pd.get_dummies(dt)
 
+# Retrieve the mapping between original labels and encoded numbers
+label_mapping = {}
+for column in dt.columns:
+    if dt[column].dtype == 'object':  # Check if column contains string/object data
+        encoder.fit(dt[column])
+        label_mapping[column] = dict(zip(encoder.transform(encoder.classes_), encoder.classes_))
+# Print the label mapping
+print(label_mapping)
+
 #%% apply regression imputation using ‘Bayesian Ridge’
 column_names = df_encoded.columns.tolist()
 imputbr = IterativeImputer(BayesianRidge())
@@ -575,7 +584,7 @@ from sklearn.metrics import accuracy_score
 # Extract the most informative the feature
 # X_scaled_subset = X_scaled[:, 34].reshape(-1, 1)  # Reshape to maintain 2D array shape
 # selected_feature_indices = [9, 18, 26, 28, 33, 37, 46, 47, 48, 57] # Accuracy: 0.8305084745762712
-selected_feature_indices = [9, 14, 33, 37, 44, 46, 47, 48, 57, 61] # Accuracy: 0.8587570621468926
+selected_feature_indices = [9, 14, 33, 37, 44, 46, 47, 48, 57, 61]  # Accuracy: 0.8587570621468926
 X_standardized_subset = X_standardized[:, selected_feature_indices]
 
 # Split the dataset into training and testing sets
@@ -596,7 +605,61 @@ print("Accuracy:", accuracy)
 
 
 # Start ------------------------------------------------------------------------------------------- Visualize Clusters Feature Correlation
-# TODO: Visualize Clusters Feature Correlation (Maybe do visualization for SVM and K means separatly but better do just for SVM and thats all)
+feature_of_interest = 'Do you currently have a mental health disorder?'
+# Concatenate X and y for easier manipulation
+data = pd.concat([X.iloc[:, selected_feature_indices], pd.DataFrame(y, columns=[feature_of_interest])], axis=1)
+
+# Separate data based on class labels
+class_0_data = data[data[feature_of_interest] == 0].drop(feature_of_interest, axis=1)
+class_1_data = data[data[feature_of_interest] == 1].drop(feature_of_interest, axis=1)
+class_2_data = data[data[feature_of_interest] == 2].drop(feature_of_interest, axis=1)
+
+# Calculate correlation matrices for each class
+corr_class_0 = class_0_data.corr()
+corr_class_1 = class_1_data.corr()
+corr_class_2 = class_2_data.corr()
+
+# Replace NaN values with 0
+corr_class_0.fillna(0, inplace=True)
+corr_class_1.fillna(0, inplace=True)
+corr_class_2.fillna(0, inplace=True)
+
+for index, corr_matrix in enumerate([corr_class_0, corr_class_1, corr_class_2]):
+    # Apply PCA for dimensionality reduction
+    pca = PCA(n_components=2)
+    pca_result = pca.fit_transform(corr_matrix)
+
+    # Create correlation circle plot
+    plt.figure(figsize=(24, 24))
+    sns.scatterplot(x=pca_result[:, 0], y=pca_result[:, 1], s=200)
+
+    # Plot variable names
+    for i in range(len(corr_matrix.columns)):  # str(i)
+        plt.text(pca_result[i, 0], pca_result[i, 1], f"{corr_matrix.columns[i]}", fontsize=12, ha='center')
+
+    #
+    label_str = label_mapping[feature_of_interest][index]
+
+    # Set plot labels and title
+    plt.xlabel('PC1', fontsize=14)
+    plt.ylabel('PC2', fontsize=14)
+    plt.title(f'Correlation Circle Plot("{feature_of_interest}"="{label_str}")', fontsize=16)
+    plt.axhline(0, color='black', linewidth=0.5)
+    plt.axvline(0, color='black', linewidth=0.5)
+    # plt.grid(True, linestyle='--', alpha=0.7)
+
+    max_value = np.max(pca_result)
+
+    # Add correlation circle
+    circle = plt.Circle((0, 0), max_value, color='blue', fill=False, linestyle='--', linewidth=2)
+    plt.gca().add_artist(circle)
+
+    # Manually set x and y limits
+    plt.xlim(-max_value, max_value)
+    plt.ylim(-max_value, max_value)
+
+    plt.savefig(f'correlation_with_feature_of_interest_with_label_{str(label_str).lower()}.png', bbox_inches='tight')
+
 # Finish ------------------------------------------------------------------------------------------- Visualize Clusters Feature Correlation
 
 # Start ------------------------------------------------------------------------------------------- Clustering
@@ -604,6 +667,7 @@ print("Accuracy:", accuracy)
 from sklearn.cluster import KMeans
 from yellowbrick.cluster import KElbowVisualizer
 
+plt.figure(figsize=(12, 8))
 # create a k-Means model an Elbow-Visualizer
 model = KMeans()
 visualizer = KElbowVisualizer(model, k=(1, 8), timings=False)

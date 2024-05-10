@@ -123,6 +123,7 @@ def plot_dataset(df):
 dt = pd.read_csv("archive/mental-heath-in-tech-2016_20161114.csv")
 dt_rows, dt_columns = dt.shape
 
+
 pca_plot_data(dt, filename="pca_plot_after_loading")
 correlation_cycle_plot_data(dt, filename="correlation_cycle_plot_after_loading")
 
@@ -134,7 +135,7 @@ def show_survey_questions():
         print(str(i) + " " + str(column))
 
 mission_data_list = dt.isna().sum().tolist()
-print(f"Mission data in columns: {mission_data_list}")
+print(f"{(sum(1 for num in mission_data_list if num > 0)/len(mission_data_list))*100: .2f}% of mission data in columns: {mission_data_list}")
 
 def show_missing_values(dt, more_than_p=0.3):
     dt_rows, _ = dt.shape
@@ -142,7 +143,7 @@ def show_missing_values(dt, more_than_p=0.3):
     more_than_n = dt_rows*more_than_p
     for i, n in enumerate(mission_data_list):
         if mission_data_list[i] >= more_than_n:
-            print(f'{n / dt_rows: .2f}% Missing -> ({i}/{dt[dt.columns[i]].dtype}) {dt.columns[i]}')
+            print(f'{(n / dt_rows)*100: .2f}% Missing -> ({i}/{dt[dt.columns[i]].dtype}) {dt.columns[i]}')
 
 show_missing_values(dt, more_than_p=0.26)
 # Finish ------------------------------------------------------------------------------------------- Loading File
@@ -517,8 +518,8 @@ correlation_matrix = dt.corr()
 correlation_matrix.to_csv("my_dt_correlation_matrix.csv", index=False)
 
 # Plotting the correlation matrix
-plt.figure(figsize=(24, 16))
-sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+plt.figure(figsize=(36, 24))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".1f", linewidths=0.5)
 plt.title('Correlation Matrix')
 plt.savefig("correlation_matrix_plot.png", bbox_inches='tight')
 
